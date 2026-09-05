@@ -162,6 +162,7 @@ Return ONLY valid JSON.`;
                 content: fullPrompt
               }
             ],
+            response_format: { type: "json_object" },
             temperature: 0.7,
             max_tokens: 1024
           },
@@ -186,30 +187,66 @@ Return ONLY valid JSON.`;
       throw lastAiError || new Error('Invalid response from Groq API');
     }
 
-    // Parse the Groq response
-    if (!aiResponse.data.choices || !aiResponse.data.choices[0] || !aiResponse.data.choices[0].message) {
-      throw new Error('Invalid response from Groq API');
-    }
-
     const generatedText = aiResponse.data.choices[0].message.content;
     
-    // Strip markdown code fences if present e.g. ```json ... ```
+    // Robust JSON extraction & cleanup
     let cleanText = (generatedText || '').trim();
     if (cleanText.startsWith('```')) {
       cleanText = cleanText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
     }
 
-    // Extract JSON from the response
-    const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-    let parsedResponse;
-    
+    let parsedResponse = null;
+
+    // 1. Direct parse attempt
     try {
-      parsedResponse = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(cleanText);
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError, 'Generated text:', generatedText);
+      parsedResponse = JSON.parse(cleanText);
+    } catch (e) {}
+
+    // 2. Extract outermost { ... }
+    if (!parsedResponse) {
+      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          parsedResponse = JSON.parse(jsonMatch[0]);
+        } catch (e1) {
+          // 3. Fix unescaped control characters/newlines inside string literals
+          try {
+            const sanitized = jsonMatch[0].replace(/[\u0000-\u001F\u007F-\u009F]/g, (c) => {
+              if (c === '\n') return '\\n';
+              if (c === '\r') return '\\r';
+              if (c === '\t') return '\\t';
+              return '';
+            });
+            parsedResponse = JSON.parse(sanitized);
+          } catch (e2) {}
+        }
+      }
+    }
+
+    // 4. Fallback field extraction via regex if JSON syntax was damaged
+    if (!parsedResponse) {
+      const extractField = (fieldName) => {
+        const regex = new RegExp(`"${fieldName}"\\s*:\\s*"([\\s\\S]*?)(?:"\\s*,|"\\s*})`, 'i');
+        const m = cleanText.match(regex);
+        return m ? m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').trim() : '';
+      };
+      const sub = extractField('subject');
+      const body = extractField('emailBody');
+      if (sub || body) {
+        parsedResponse = {
+          subject: sub || 'Job Outreach',
+          emailBody: body || cleanText,
+          linkedInDM: extractField('linkedInDM'),
+          followUpEmail: extractField('followUpEmail')
+        };
+      }
+    }
+
+    if (!parsedResponse) {
+      console.error('JSON parse error. Generated text:', generatedText);
       return res.status(500).json({ 
         message: 'Failed to parse AI response', 
-        error: 'The AI generated invalid JSON. Please try again.' 
+        error: 'The AI generated invalid formatting. Please try again.' 
       });
     }
 
