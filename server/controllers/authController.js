@@ -60,6 +60,7 @@ exports.registerUser = async (req, res) => {
 
     // Send OTP email - awaited to guarantee email sending status before responding
     const message = `Your OTP for verification is: ${otp}\n\nThis OTP is valid for 10 minutes.`;
+    console.log(`\n🔑 [DEV MODE] Verification OTP for ${user.email} is: ${otp}\n`);
     try {
       await sendEmail({ email: user.email, subject: 'Email Verification OTP - AI Cold Mail Generator', message });
       console.log(`✅ OTP email sent successfully to: ${user.email}`);
@@ -114,6 +115,7 @@ exports.resendOTP = async (req, res) => {
     await user.save();
 
     const message = `Your new OTP for verification is: ${otp}\n\nThis OTP is valid for 10 minutes.`;
+    console.log(`\n🔑 [DEV MODE] Resent Verification OTP for ${user.email} is: ${otp}\n`);
     await sendEmail({
       email: user.email,
       subject: 'Resend Verification OTP - AI Cold Mail Generator',
