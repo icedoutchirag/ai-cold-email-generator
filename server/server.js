@@ -9,6 +9,7 @@ const aiRoutes = require('./routes/aiRoutes');
 
 // Load environment variables
 dotenv.config();
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 // Normalize environment variables aliases
 process.env.MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
