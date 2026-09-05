@@ -75,11 +75,12 @@ const clientBuildPath = path.join(__dirname, '..', 'client', 'dist');
 if (fs.existsSync(clientBuildPath)) {
     app.use(express.static(clientBuildPath));
 
-    // For any route not starting with /api, send index.html
-    app.get('*', (req, res) => {
-        if (!req.path.startsWith('/api')) {
-            res.sendFile(path.join(clientBuildPath, 'index.html'));
+    // For any route not starting with /api, send index.html (compatible with Express 4 and 5)
+    app.use((req, res, next) => {
+        if (!req.path.startsWith('/api') && req.method === 'GET') {
+            return res.sendFile(path.join(clientBuildPath, 'index.html'));
         }
+        next();
     });
 }
 
