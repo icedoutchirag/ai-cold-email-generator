@@ -138,27 +138,53 @@ Clear CTA.
 Return ONLY valid JSON.`;
     
     const fullPrompt = `${systemPrompt}\n\nUser REQUEST: "${prompt.trim()}"\n\nGenerate STRONG cold email even if prompt is short. Make smart assumptions. Return ONLY valid JSON:\n{"subject": "...", "emailBody": "...", "linkedInDM": "...", "followUpEmail": "..."}`;
-    const aiResponse = await axios.post(
-      'https://api.groq.com/openai/v1/chat/completions',
-      {
-        model: "llama-3.3-70b-versatile",
-        messages: [
+    
+    // Candidate models on Groq with automatic fallback
+    const candidateModels = [
+      process.env.GROQ_MODEL,
+      "openai/gpt-oss-120b",
+      "openai/gpt-oss-20b",
+      "qwen/qwen3.8-27b"
+    ].filter(Boolean);
+
+    let aiResponse;
+    let lastAiError;
+
+    for (const model of candidateModels) {
+      try {
+        aiResponse = await axios.post(
+          'https://api.groq.com/openai/v1/chat/completions',
           {
-            role: "user",
-            content: fullPrompt
+            model,
+            messages: [
+              {
+                role: "user",
+                content: fullPrompt
+              }
+            ],
+            temperature: 0.7,
+            max_tokens: 1024
+          },
+          {
+            headers: {
+              'Authorization': `Bearer ${groqApiKey}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 30000
           }
-        ],
-        temperature: 0.7,
-        max_tokens: 1024
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${groqApiKey}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 30000
+        );
+        if (aiResponse?.data?.choices?.[0]?.message?.content) {
+          break; // Successfully got response
+        }
+      } catch (err) {
+        lastAiError = err;
+        console.warn(`Groq model ${model} failed (${err.response?.status || err.message}), attempting fallback...`);
       }
-    );
+    }
+
+    if (!aiResponse || !aiResponse.data?.choices?.[0]?.message) {
+      throw lastAiError || new Error('Invalid response from Groq API');
+    }
 
     // Parse the Groq response
     if (!aiResponse.data.choices || !aiResponse.data.choices[0] || !aiResponse.data.choices[0].message) {
