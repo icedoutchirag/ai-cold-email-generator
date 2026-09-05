@@ -60,7 +60,9 @@ app.use(express.urlencoded({ extended: true }));
 
 
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/ai', aiRoutes);
 
 // Root route health check
 app.get('/', (req, res) => {
