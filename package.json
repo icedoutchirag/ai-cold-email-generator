@@ -4,10 +4,10 @@
   "description": "Full-stack AI Cold Email & Outreach Generator built with React, Node.js, Express, MongoDB, and Groq LLM",
   "author": "Chirag Tayal <chiragtayal2006@gmail.com>",
   "scripts": {
-    "install-all": "npm install && cd server && npm install && cd ../client && npm install",
+    "install-all": "npm install && npm --prefix server install && npm --prefix client install",
     "install:all": "npm run install-all",
-    "build": "cd client && npm install && npm run build",
-    "start": "cd server && npm start",
+    "build": "npm --prefix client run build",
+    "start": "npm --prefix server run start",
     "dev": "concurrently \"npm run start:server\" \"npm run start:client\"",
     "start:server": "npm --prefix server run start",
     "start:client": "npm --prefix client run dev"
